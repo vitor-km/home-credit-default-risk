@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project data — Kaggle files, never commit raw data
+data/raw/
+data/processed/
+*.csv
+*.parquet
+*.zip
+
+# Serialized models
+models/*.pkl
+models/*.joblib
+models/*.json
