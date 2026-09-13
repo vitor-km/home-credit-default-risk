@@ -249,3 +249,50 @@ def apply_frozen_woe(raw_series, spec):
             s = s.map(lambda v: category_map.get(v, fallback))
         woe_map = dict(zip(table['bin'], table['woe']))
         return s.map(woe_map)
+
+def score_client(raw_features: dict, pipeline: dict) -> dict:
+    """
+    Score a single client using a frozen scorecard pipeline (as produced by
+    06_model_packaging.ipynb and saved to models/scorecard_pipeline.json).
+    Depends only on the pipeline dict and pandas/numpy, never on any
+    notebook-session state, so it can be called from the API unchanged.
+    """
+    factor = pipeline["factor"]
+    base_points = pipeline["base_points_per_characteristic"]
+
+    breakdown = {}
+    total_points = 0.0
+
+    for var, spec in pipeline["variables"].items():
+        raw_value = raw_features.get(var)
+        coef = spec["coefficient"]
+
+        if spec["type"] == "numeric":
+            if raw_value is None or (isinstance(raw_value, float) and pd.isnull(raw_value)):
+                woe = spec["missing_woe"]
+            elif spec.get("zero_woe") is not None and raw_value == 0:
+                woe = spec["zero_woe"]
+            else:
+                bin_idx = pd.cut([raw_value], bins=spec["edges"], labels=False)[0]
+                woe = spec["bin_woe"][int(bin_idx)]
+        else:
+            v = raw_value if raw_value is not None else "Missing"
+            category_map = spec.get("category_map")
+            if category_map is not None:
+                fallback = "Other_grouped" if "Other_grouped" in spec["category_woe"] else "Missing"
+                v = category_map.get(v, fallback)
+            woe = spec["category_woe"].get(v, spec["category_woe"].get("Missing", 0.0))
+
+        points = base_points + (-factor * coef * woe)
+        breakdown[var] = {"raw_value": raw_value, "woe": round(woe, 4), "points": round(points, 2)}
+        total_points += points
+
+    intercept = pipeline["intercept"]
+    log_odds = sum(spec["coefficient"] * breakdown[var]["woe"] for var, spec in pipeline["variables"].items()) + intercept
+    probability_default = 1 / (1 + np.exp(-log_odds))
+
+    return {
+        "score": round(total_points, 2),
+        "probability_default": round(probability_default, 4),
+        "breakdown": breakdown,
+    }
