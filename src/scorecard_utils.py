@@ -250,17 +250,25 @@ def apply_frozen_woe(raw_series, spec):
         woe_map = dict(zip(table['bin'], table['woe']))
         return s.map(woe_map)
 
+# score_client: the function that will be called directly by the future API.
+# Takes a dict of raw feature values for one client and the loaded pipeline
+# dict, returns the score, PD estimate, and per-variable point breakdown.
+# Depends only on the pipeline dict (loaded from disk) and pandas/numpy,
+# never on any notebook-session state (frozen, model_check, etc.).
+
 def score_client(raw_features: dict, pipeline: dict) -> dict:
     """
-    Score a single client using a frozen scorecard pipeline (as produced by
-    06_model_packaging.ipynb and saved to models/scorecard_pipeline.json).
-    Depends only on the pipeline dict and pandas/numpy, never on any
-    notebook-session state, so it can be called from the API unchanged.
+    Score a single client using a frozen scorecard pipeline. Never blocks
+    on an unseen categorical value: falls back to WoE=0 (statistically
+    neutral) when a category has no modeled fallback bucket, but tracks
+    every such occurrence in `unmapped_variables` for monitoring, instead
+    of failing silently.
     """
     factor = pipeline["factor"]
     base_points = pipeline["base_points_per_characteristic"]
 
     breakdown = {}
+    unmapped_variables = []
     total_points = 0.0
 
     for var, spec in pipeline["variables"].items():
@@ -279,9 +287,17 @@ def score_client(raw_features: dict, pipeline: dict) -> dict:
             v = raw_value if raw_value is not None else "Missing"
             category_map = spec.get("category_map")
             if category_map is not None:
-                fallback = "Other_grouped" if "Other_grouped" in spec["category_woe"] else "Missing"
-                v = category_map.get(v, fallback)
-            woe = spec["category_woe"].get(v, spec["category_woe"].get("Missing", 0.0))
+                v = category_map.get(v)
+                if v is None:
+                    fallback = "Other_grouped" if "Other_grouped" in spec["category_woe"] else "Missing"
+                    v = fallback if fallback in spec["category_woe"] else None
+            if v is not None and v in spec["category_woe"]:
+                woe = spec["category_woe"][v]
+            else:
+                # No modeled fallback exists for this value: statistically
+                # neutral default (WoE=0), flagged for monitoring.
+                woe = 0.0
+                unmapped_variables.append(var)
 
         points = base_points + (-factor * coef * woe)
         breakdown[var] = {"raw_value": raw_value, "woe": round(woe, 4), "points": round(points, 2)}
@@ -295,4 +311,6 @@ def score_client(raw_features: dict, pipeline: dict) -> dict:
         "score": round(total_points, 2),
         "probability_default": round(probability_default, 4),
         "breakdown": breakdown,
+        "unmapped_variables": unmapped_variables,
+        "review_flag": len(unmapped_variables) >= 3,
     }
