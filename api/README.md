@@ -66,35 +66,37 @@ pipeline is deterministic and environment-independent.
 curl -X POST http://127.0.0.1:8000/score \
   -H "Content-Type: application/json" \
   -d '{
-    "EXT_SOURCE_1": 0.75,
-    "EXT_SOURCE_2": 0.68,
-    "EXT_SOURCE_3": 0.71,
+    "EXT_SOURCE_1": 0.8683837407692271,
+    "EXT_SOURCE_2": 0.7336754919406919,
+    "EXT_SOURCE_3": 0.6986675550534175,
     "NAME_EDUCATION_TYPE_BINNED": "Higher education",
-    "AMT_CREDIT": 450000,
+    "AMT_CREDIT": 1223010.0,
     "CODE_GENDER": "F",
     "YEARS_EMPLOYED": 15.2,
     "ORGANIZATION_TYPE_BINNED": "Business Entity Type 3",
-    "FLOORSMAX_AVG": 0.25,
-    "BUREAU_CREDIT_ACTIVE_ACTIVE_COUNT": 1,
-    "BUREAU_AMT_CREDIT_SUM_LIMIT_MEAN": 5000,
-    "OCCUPATION_TYPE_BINNED": "Core staff",
-    "REGION_POPULATION_RELATIVE": 0.02,
-    "DAYS_ID_PUBLISH": -3000,
-    "BUREAU_AMT_CREDIT_SUM_DEBT_MEAN": 0,
-    "DAYS_LAST_PHONE_CHANGE": -500,
-    "BUREAU_DAYS_CREDIT_MEAN": -900
+    "FLOORSMAX_AVG": 0.3333,
+    "BUREAU_CREDIT_ACTIVE_ACTIVE_COUNT": 2.0,
+    "BUREAU_AMT_CREDIT_SUM_LIMIT_MEAN": null,
+    "OCCUPATION_TYPE_BINNED": "Managers",
+    "REGION_POPULATION_RELATIVE": 0.04622,
+    "DAYS_ID_PUBLISH": -5545,
+    "BUREAU_AMT_CREDIT_SUM_DEBT_MEAN": 0.0,
+    "DAYS_LAST_PHONE_CHANGE": -962.0,
+    "BUREAU_DAYS_CREDIT_MEAN": -952.2
   }'
 ```
 
 ### Example response
 
+Real output for the request above (client `SK_ID_CURR` 251294), with the `breakdown` abbreviated to two of its 17 entries:
+
 ```json
 {
-  "score": 670.81,
-  "probability_default": 0.0357,
+  "score": 669.48,
+  "probability_default": 0.0365,
   "breakdown": {
-    "EXT_SOURCE_1": {"raw_value": 0.75, "woe": 0.91, "points": 55.85},
-    "...": "..."
+    "EXT_SOURCE_2": {"raw_value": 0.7336754919406919, "woe": 1.0578, "points": 74.83},
+    "EXT_SOURCE_3": {"raw_value": 0.6986675550534175, "woe": 0.891, "points": 67.1}
   },
   "unmapped_variables": [],
   "review_flag": false
@@ -113,3 +115,5 @@ curl -X POST http://127.0.0.1:8000/score \
 
 The scoring logic itself (`score_client`) lives in `src/scorecard_utils.py`,
 shared with the notebooks so the API and the notebooks never diverge.
+
+This was validated end to end: the same client (`SK_ID_CURR` 251294) produces the identical score (669.48) and `probability_default` (0.0365) whether scored directly from the notebook, from a local `uvicorn` process, or from the Docker container, confirming the pipeline is deterministic and environment-independent.
