@@ -284,7 +284,7 @@ def score_client(raw_features: dict, pipeline: dict) -> dict:
                 bin_idx = pd.cut([raw_value], bins=spec["edges"], labels=False)[0]
                 woe = spec["bin_woe"][int(bin_idx)]
         else:
-            v = raw_value if raw_value is not None else "Missing"
+            v = "Missing" if (raw_value is None or pd.isnull(raw_value)) else raw_value
             category_map = spec.get("category_map")
             if category_map is not None:
                 v = category_map.get(v)
