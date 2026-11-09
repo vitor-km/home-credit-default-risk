@@ -228,3 +228,9 @@ data/processed/
 models/*.pkl
 models/*.joblib
 models/*.json
+
+# MLflow local tracking store (never commit)
+mlruns/
+
+# Scorecard artifact is versioned: the Dockerfile needs it
+!models/scorecard_pipeline.json
