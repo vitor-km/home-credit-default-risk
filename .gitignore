@@ -231,6 +231,9 @@ models/*.json
 
 # MLflow local tracking store (never commit)
 mlruns/
+mlflow.db
+mlartifacts/
 
 # Scorecard artifact is versioned: the Dockerfile needs it
 !models/scorecard_pipeline.json
+
